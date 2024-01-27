@@ -65,7 +65,8 @@ app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbC
         OccuredOn = DateTime.UtcNow,
         ProcessedDate = null,
         Payload = JsonSerializer.Serialize(orderCreatedEvent),
-        Type = orderCreatedEvent.GetType().Name
+        Type = orderCreatedEvent.GetType().Name,
+        IdempotentToken = idempotentToken
     };
 
     await orderDbContext.OrderOutboxes.AddAsync(orderOutbox);
