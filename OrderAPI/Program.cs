@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using OrderAPI.Data.Contexts;
 using OrderAPI.Models;
 using OrderAPI.ViewModels;
+using Shared;
+using Shared.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,11 +13,19 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<OrderDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("MSSQL")));
 
+builder.Services.AddMassTransit(configurator =>
+{
+    configurator.UsingRabbitMq((context, _configure) =>
+    {
+        _configure.Host(builder.Configuration["RabbitMQ"]);
+    });
+});
+
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbContext) =>
+app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbContext, ISendEndpointProvider sendEndpointProvider) =>
 {
     Order order = new()
     {
@@ -32,6 +42,26 @@ app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbC
 
     await orderDbContext.Orders.AddAsync(order);
     await orderDbContext.SaveChangesAsync();
+
+    var idempotentToken = Guid.NewGuid();
+    OrderCreatedEvent orderCreatedEvent = new()
+    {
+        BuyerId = order.BuyerId,
+        OrderId = order.Id,
+        TotalPrice = model.OrderItems.Sum(oi => oi.Count * oi.Price),
+        OrderItems = model.OrderItems.Select(oi => new Shared.Datas.OrderItem
+        {
+            Price = oi.Price,
+            Count = oi.Count,
+            ProductId = oi.ProductId
+        }).ToList(),
+        IdempotentToken = idempotentToken
+    };
+
+    var sendEndpoint = await sendEndpointProvider.GetSendEndpoint(new Uri($"queue:{RabbitMQSettings.Stock_OrderCreatedEvent}"));
+    await sendEndpoint.Send<OrderCreatedEvent>(orderCreatedEvent);
+
+
 });
 
 
