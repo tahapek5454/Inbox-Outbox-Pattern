@@ -12,7 +12,7 @@ using OrderAPI.Data.Contexts;
 namespace OrderAPI.Migrations
 {
     [DbContext(typeof(OrderDbContext))]
-    [Migration("20240127123006_mig1")]
+    [Migration("20240127140032_mig1")]
     partial class mig1
     {
         /// <inheritdoc />
@@ -72,6 +72,31 @@ namespace OrderAPI.Migrations
                     b.HasIndex("OrderId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("OrderAPI.Models.OrderOutbox", b =>
+                {
+                    b.Property<Guid>("IdempotentToken")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("OccuredOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ProcessedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("IdempotentToken");
+
+                    b.ToTable("OrderOutboxes");
                 });
 
             modelBuilder.Entity("OrderAPI.Models.OrderItem", b =>

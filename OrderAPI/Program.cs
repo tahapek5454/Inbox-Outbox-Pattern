@@ -5,6 +5,7 @@ using OrderAPI.Models;
 using OrderAPI.ViewModels;
 using Shared;
 using Shared.Events;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,7 +42,7 @@ app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbC
     };
 
     await orderDbContext.Orders.AddAsync(order);
-    await orderDbContext.SaveChangesAsync();
+
 
     var idempotentToken = Guid.NewGuid();
     OrderCreatedEvent orderCreatedEvent = new()
@@ -58,8 +59,23 @@ app.MapPost("/create-order", async (CreateOrderVM model, OrderDbContext orderDbC
         IdempotentToken = idempotentToken
     };
 
-    var sendEndpoint = await sendEndpointProvider.GetSendEndpoint(new Uri($"queue:{RabbitMQSettings.Stock_OrderCreatedEvent}"));
-    await sendEndpoint.Send<OrderCreatedEvent>(orderCreatedEvent);
+
+    OrderOutbox orderOutbox = new()
+    {
+        OccuredOn = DateTime.UtcNow,
+        ProcessedDate = null,
+        Payload = JsonSerializer.Serialize(orderCreatedEvent),
+        Type = orderCreatedEvent.GetType().Name
+    };
+
+    await orderDbContext.OrderOutboxes.AddAsync(orderOutbox);
+
+    await orderDbContext.SaveChangesAsync();
+
+    // Artik direkt messageBroker a biz gondermiyoruz. Outbox table a kaydediyoruz. Alttaki Eski yontem
+
+    //var sendEndpoint = await sendEndpointProvider.GetSendEndpoint(new Uri($"queue:{RabbitMQSettings.Stock_OrderCreatedEvent}"));
+    //await sendEndpoint.Send<OrderCreatedEvent>(orderCreatedEvent);
 
 
 });

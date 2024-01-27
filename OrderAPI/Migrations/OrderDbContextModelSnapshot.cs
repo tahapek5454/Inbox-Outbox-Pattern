@@ -73,6 +73,10 @@ namespace OrderAPI.Migrations
 
             modelBuilder.Entity("OrderAPI.Models.OrderOutbox", b =>
                 {
+                    b.Property<Guid>("IdempotentToken")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("OccuredOn")
                         .HasColumnType("datetime2");
 
@@ -86,6 +90,8 @@ namespace OrderAPI.Migrations
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("IdempotentToken");
 
                     b.ToTable("OrderOutboxes");
                 });
