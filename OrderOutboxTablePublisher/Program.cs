@@ -1,7 +1,10 @@
+using OrderOutboxTablePublisher;
 using OrderOutboxTablePublisher.Jobs;
 using Quartz;
 
 var builder = Host.CreateApplicationBuilder(args);
+
+OrderOutboxSingeltonDatabase.InitilazeDb(builder.Configuration.GetConnectionString("MSSQL"));
 
 builder.Services.AddQuartz(configureator =>
 {
